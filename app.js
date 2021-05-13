@@ -23,7 +23,7 @@ var telegraf_1 = require("telegraf");
 var dotenv = __importStar(require("dotenv"));
 dotenv.config();
 if (process.env.BOT_TOKEN === undefined) {
-    throw new TypeError('BOT_TOKEN must be provided!');
+    throw new TypeError("BOT_TOKEN must be provided!");
 }
 var keyboard = telegraf_1.Markup.inlineKeyboard([
     telegraf_1.Markup.button.url("❤️", "http://telegraf.js.org"),
@@ -34,6 +34,11 @@ bot.start(function (ctx) { return ctx.reply("Hello"); });
 bot.help(function (ctx) { return ctx.reply("Help message"); });
 bot.on("message", function (ctx) {
     return ctx.telegram.sendCopy(ctx.message.chat.id, ctx.message, keyboard);
+});
+bot.on("text", function (ctx) {
+    if (ctx.message.text === "timer") {
+        ctx.reply("starting timer!");
+    }
 });
 bot.action("delete", function (ctx) { return ctx.deleteMessage(); });
 bot.launch();
