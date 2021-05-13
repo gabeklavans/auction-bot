@@ -2,9 +2,7 @@ import { Telegraf, Markup } from "telegraf";
 import firebase from "firebase";
 // import "firebase/analytics";
 import * as dotenv from "dotenv";
-const Graceful = require("@ladjs/graceful");
-const Bree = require("bree");
-const Cabin = require("cabin");
+import cron from "node-cron";
 dotenv.config();
 
 if (process.env.BOT_TOKEN === undefined) {
@@ -24,25 +22,24 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
+type Auction = {
+  bid: number;
+  chatId: string;
+  endDate: number;
+};
+
 const database = firebase.database();
-// database.ref(`users/hewwo`).set({
-//   user: `hewwo`,
-//   pass: `1234`,
-// });
+let auctions: {
+  [key: string]: Auction;
+};
 
-const bree = new Bree({
-  logger: new Cabin(),
-  jobs: [
-    {
-      name: "notify",
-      cron: "*/1 * * * *",
-    },
-  ],
+database.ref("auctions").on("value", (snapshot) => {
+  const data = snapshot.val() as Object;
+  auctions = data as {
+    [key: string]: Auction;
+  };
+  console.log(auctions);
 });
-
-const graceful = new Graceful({ brees: [bree] });
-graceful.listen();
-bree.start();
 
 const keyboard = Markup.inlineKeyboard([
   Markup.button.url("❤️", "http://telegraf.js.org"),
@@ -59,13 +56,38 @@ bot.command("timer", (ctx) => {
     ctx.reply("Timer done!");
   }, 3000);
 });
+bot.command("auction", (ctx) => {
+  ctx.reply("Starting auction!");
+  const newAuctionRef = database.ref(`auctions`).push();
+  newAuctionRef.set({
+    endDate: new Date().getTime(),
+    chatId: ctx.chat.id,
+    bid: 0.123,
+  });
+});
 bot.on("message", (ctx) =>
   ctx.telegram.sendCopy(ctx.message.chat.id, ctx.message, keyboard)
 );
 bot.action("delete", (ctx) => ctx.deleteMessage());
 
-bot.launch();
-console.log("Started bot");
+bot.launch().then(() => {
+  console.log("Started bot");
+});
+
+const checkCompletedAuctions = () => {
+  // This doesn't cause a multi-access error cause the
+  // keys array is a new obj... idk if that's bad code tho lol
+  Object.keys(auctions).forEach((auctionId) => {
+    const auction = { ...auctions[auctionId] };
+    if (auction.endDate < new Date().getTime()) {
+      const auctionRef = database.ref(`auctions/${auctionId}`);
+      auctionRef.remove();
+      bot.telegram.sendMessage(auction.chatId, "Auction ended!");
+    }
+  });
+};
+
+cron.schedule("* * * * *", checkCompletedAuctions);
 
 // Enable graceful stop
 process.once("SIGINT", () => bot.stop("SIGINT"));
