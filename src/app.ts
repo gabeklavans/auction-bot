@@ -65,6 +65,7 @@ bot.command("auction", (ctx) => {
     bid: 0.123,
   });
 });
+
 bot.on("message", (ctx) =>
   ctx.telegram.sendCopy(ctx.message.chat.id, ctx.message, keyboard)
 );
